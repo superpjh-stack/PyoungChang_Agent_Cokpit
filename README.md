@@ -1,3 +1,15 @@
+# 평창꽃순이김치 AI Agent
+
+## 최신 V2 · 임진강김치 최종버전 기준 업데이트
+
+React·TypeScript·FastAPI의 3단 대화 화면과 평창꽃순이 전용 CCP·금속검출·PDA·출하 근거 조회를 추가했습니다. 기존 Streamlit V1과 데이터는 유지합니다.
+
+- 실행: `.venv-v2/bin/uvicorn v2.api:app --host 127.0.0.1 --port 8512`
+- 로컬 화면: http://127.0.0.1:8512
+- 설치·AI 연결·검증·한계: [V2 안내](v2/README.md)
+
+아래는 기존 V1 안내입니다.
+
 # 평창꽃순이김치 MES·RAG AI Agent Cockpit
 
 평창꽃순이김치 현장에서 확인된 자동버블세척, CCP 기록, 수주 기반 생산계획, PDA 재고이동, 금속검출, 완제품재고와 택배·배송·B2C 출하를 하나의 대화로 연결하는 실행형 Streamlit 프로토타입입니다.
