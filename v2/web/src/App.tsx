@@ -1,6 +1,8 @@
 import {useCallback,useEffect,useRef,useState,type ReactNode} from 'react';
-import {BookOpen, ChevronRight, CircleAlert, Database, FileText, LoaderCircle, RefreshCw, Search, Settings2, Sparkles, Table2, X} from 'lucide-react';
+import {BookOpen, ChevronRight, CircleAlert, Database, FileText, LoaderCircle, RefreshCw, Search, Settings2, Table2, X} from 'lucide-react';
 import {Assistant} from './components/Assistant';
+import LotWorkspace from './components/LotWorkspace';
+import OperationsHome from './components/OperationsHome';
 import WorkspaceShell,{type WorkspaceView} from './components/WorkspaceShell';
 import {loadAllMetalRecords} from './operations';
 import {request,type Detail,type Document,type Row,type Workspace} from './types';
@@ -20,7 +22,6 @@ function readRoute(hash:string):{view:WorkspaceView;lot:string|null}{
  if(!validViews.includes(view))return {view:'home',lot:null};
  try{return {view,lot:parts[1]?decodeURIComponent(parts[1]):null}}catch{return {view,lot:null}}
 }
-
 function PageIntro({eyebrow,title,description,action}:{eyebrow:string;title:string;description:string;action?:ReactNode}){return <header className="page-heading"><div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{description}</p></div>{action}</header>}
 
 export default function App(){
@@ -43,7 +44,6 @@ export default function App(){
  const [error,setError]=useState('');
  const [metalRecords,setMetalRecords]=useState<Row[]>([]);
  const [metalError,setMetalError]=useState('');
- const [lastLoaded,setLastLoaded]=useState('');
  const assistant=useRef<import('./components/Assistant').AssistantHandle>(null);
  const contextLot=route.lot||'';
 
@@ -60,7 +60,7 @@ export default function App(){
   setError('');
   try{
    const [workspace,docs]=await Promise.all([request<Workspace>('/workspace'),request<Document[]>('/documents')]);
-   setData(workspace);setDocuments(docs);setLastLoaded(new Date().toISOString());setLoading(false);
+   setData(workspace);setDocuments(docs);setLoading(false);
    try{setMetalRecords(await loadAllMetalRecords());setMetalError('')}catch(reason){setMetalError((reason as Error).message)}
   }catch(reason){setError((reason as Error).message);if(initial)setLoading(false)}
   finally{setRefreshing(false)}
@@ -86,9 +86,9 @@ export default function App(){
  const activeTable=data.tables.find(table=>table.table===selectedTable);
  const contextQuestion=(question:string,lot=contextLot)=>{navigate('assistant',lot);window.setTimeout(()=>assistant.current?.ask(question,lot),0)};
  let content:ReactNode;
- if(route.view==='home')content=<div className="workspace-page"><PageIntro eyebrow="평창꽃순이김치 현장 기록" title="확인할 항목을 살펴보세요" description={`샘플 기록 기준 ${data.meta.as_of} · 조회 ${lastLoaded?new Date(lastLoaded).toLocaleTimeString('ko-KR'):data.meta.retrieved_at}`}/><div className="page-skeleton"><div className="skeleton-icon"><Sparkles/></div><h2>LOT · 품질 · 출하 기록을 확인합니다</h2><p>주의·보류 기록을 LOT 근거와 함께 빠르게 확인할 수 있습니다.</p><button className="primary-button" onClick={()=>navigate('lots')}>LOT 찾아보기 <ChevronRight size={16}/></button></div><div className="sample-note">제조 데이터는 {data.meta.as_of} 샘플입니다. 실시간 설비 또는 승인 상태가 아닙니다.</div></div>;
- else if(route.view==='lots')content=<div className="workspace-page"><PageIntro eyebrow="LOT 작업" title="LOT 기록" description="공정과 상태를 살펴보고 연결된 제조 근거를 확인합니다."/><div className="list-loading"><LoaderCircle size={18} className="spin"/> LOT 작업 화면을 준비하고 있습니다.</div></div>;
- else if(route.view==='assistant')content=<div className="assistant-mobile-heading"><p className="eyebrow">근거형 제조 도우미</p><h1>LOT와 기록을 질문하세요</h1><p>이 화면에서 질문하고 근거를 확인합니다.</p></div>;
+ if(route.view==='home')content=<OperationsHome data={data} metalRecords={metalRecords} metalError={metalError} onOpenLot={lot=>navigate('lots',lot||null)} onAsk={(question,lot)=>contextQuestion(question,lot??contextLot)}/>;
+ else if(route.view==='lots')content=<LotWorkspace lots={data.lots} selectedLot={route.lot} onSelectLot={lot=>navigate('lots',lot||null)} onAsk={(question,lot)=>contextQuestion(question,lot)}/>;
+ else if(route.view==='assistant')content=<div className="assistant-mobile-heading"><div><p className="eyebrow">근거형 제조 도우미</p><h1>LOT와 기록을 질문하세요</h1><p>이 화면에서 질문하고 근거를 확인합니다.</p></div><button className="assistant-home-button" onClick={()=>navigate('home')} aria-label="현장 홈으로 돌아가기"><X size={19}/></button></div>;
  else content=<div className="workspace-page"><PageIntro eyebrow="문서 · 원본 기록" title="제조 자료" description="문서 상태와 기록 원문을 조회합니다."/>
   <div className="library-tabs" role="tablist"><button role="tab" aria-selected={libraryTab==='knowledge'} className={libraryTab==='knowledge'?'active':''} onClick={()=>setLibraryTab('knowledge')}><BookOpen size={17}/>지식베이스</button><button role="tab" aria-selected={libraryTab==='data'} className={libraryTab==='data'?'active':''} onClick={()=>setLibraryTab('data')}><Database size={17}/>데이터허브</button></div>
   {libraryTab==='knowledge'?<><label className="side-search"><Search size={16}/><span className="sr-only">문서 검색</span><input value={search} onChange={event=>setSearch(event.target.value)} placeholder="문서명 또는 공정 검색"/></label><p className="source-note">샘플 지식베이스 {documents.length}개 · 미승인 예시</p><div className="document-list">{filteredDocuments.map(document=><button key={document.document_id} onClick={()=>setSelectedDocument(document)}><FileText size={18}/><span><strong>{document.title||cleanDocumentName(document.filename)}</strong><small>{document.source} / {document.status}</small></span><ChevronRight size={16}/></button>)}</div>{!filteredDocuments.length&&<p className="empty-note">등록된 문서가 없습니다.</p>}</>:<><label className="table-picker">조회할 데이터<select value={selectedTable} onChange={event=>setSelectedTable(event.target.value)}>{data.tables.map(table=><option key={table.table} value={table.table}>{table.label} ({table.count})</option>)}</select></label><p className="source-note">{data.meta.backend} · 샘플 데이터 조회 전용</p><div className="data-preview"><div><Table2 size={18}/><strong>{activeTable?.label}</strong><span>{activeTable?.count??0}건</span></div>{rows.slice(0,20).map((row,index)=><button key={index} onClick={()=>setSelectedRecord(row)}><span>{String(row.lot_id??row.item_name??row.name??row.order_no??row.shipment_no??row.equipment_id??`기록 ${index+1}`)}</span><ChevronRight size={15}/></button>)}</div></>}
