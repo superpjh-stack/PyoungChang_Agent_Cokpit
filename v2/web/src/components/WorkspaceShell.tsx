@@ -13,7 +13,7 @@ const navigation:{id:WorkspaceView;label:string;Icon:LucideIcon}[]=[
 
 export default function WorkspaceShell({view,selectedLot,data,headerActions,children,assistant,onNavigate}:Props){
  const isDemo=data.meta.demo_data;
- return <div className="workspace-shell">
+ return <div className={`workspace-shell ${view==='assistant'?'show-assistant':''}`}>
   <header className="workspace-topbar">
    <a className="workspace-brand" href="#/home" onClick={event=>{event.preventDefault();onNavigate('home')}} aria-label="평창꽃순이김치 AI Agent 현장 홈">
     <span className="brand-mark">꽃</span><span><strong>평창꽃순이김치</strong><small>AI Agent v2.0</small></span>
