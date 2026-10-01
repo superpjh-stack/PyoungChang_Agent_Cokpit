@@ -1,4 +1,4 @@
-import {AlertTriangle, ArrowRight, CircleHelp, PackageSearch} from 'lucide-react';
+import {AlertTriangle, ArrowRight, CircleHelp, PackageSearch, Truck, Boxes, ShieldCheck} from 'lucide-react';
 import {buildAttentionItems,type AttentionCategory} from '../operations';
 import type {Row,Workspace} from '../types';
 
@@ -8,6 +8,11 @@ const groups:{category:AttentionCategory;description:string}[]=[
  {category:'금속검출 보류',description:'샘플 금속검출 기록에서 판정 확인이 필요한 항목'},
  {category:'출하 승인 대기',description:'품질 승인 기록을 다시 확인할 항목'},
  {category:'재고 부족',description:'샘플 안전재고보다 수량이 적은 품목'},
+];
+const tasks=[
+ {title:'출하 확인',description:'품질 승인 상태와 배송 예정 기록을 확인해요.',question:'출하 승인 대기 기록과 배송 예정일을 확인해줘',Icon:Truck},
+ {title:'재고 확인',description:'재고가 부족한 품목과 수량을 찾아요.',question:'재고 부족 품목과 현재 수량을 확인해줘',Icon:Boxes},
+ {title:'품질 문의',description:'세척 검사와 금속검출 기록을 함께 살펴봐요.',question:'세척 CCP와 금속검출 보류 기록을 확인해줘',Icon:ShieldCheck},
 ];
 const display=(record:Row,key:string,suffix='')=>{const value=record[key];return value===null||value===undefined||value===''?'미확인':`${String(value)}${suffix}`};
 
@@ -20,7 +25,10 @@ function AttentionRow({category,item,onOpenLot,onAsk}:{category:AttentionCategor
 export default function OperationsHome({data,metalRecords,metalError,onOpenLot,onAsk}:Props){
  const items=buildAttentionItems(data,metalRecords);
  return <div className="workspace-page operations-home">
-  <header className="page-heading"><div><p className="eyebrow">현장 확인 목록 · 샘플 기록</p><h1>확인할 제조 기록</h1><p>기록 기준일 {data.meta.as_of} · 조회 {new Date(data.meta.retrieved_at).toLocaleString('ko-KR')} · 실시간 설비 연결 아님</p></div><button className="home-lot-action" onClick={()=>onOpenLot('')}>LOT 찾아보기 <ArrowRight size={16}/></button></header>
+  <header className="page-heading"><div><p className="eyebrow">현장 확인 목록 · 샘플 기록</p><h1>어떤 업무를 도와드릴까요?</h1><p>기록 기준일 {data.meta.as_of} · 조회 {new Date(data.meta.retrieved_at).toLocaleString('ko-KR')} · 실시간 설비 연결 아님</p></div><button className="home-lot-action" onClick={()=>onOpenLot('')}>생산 묶음 찾기 <ArrowRight size={16}/></button></header>
+  <section className="task-start" aria-label="업무 바로 시작"><h2>원하는 업무부터 시작하세요</h2><p>업무를 누르면 전체 샘플 기록에서 관련 내용을 찾아드립니다.</p><div className="task-start-list">{tasks.map(({title,description,question,Icon})=><button key={title} onClick={()=>onAsk(question,'')}><Icon size={23}/><span><strong>{title}</strong><small>{description}</small></span><ArrowRight size={18}/></button>)}</div></section>
+  <details className="plain-language-help"><summary>처음 사용하시나요? 용어와 이용 순서</summary><p>① 업무 선택 → ② 답변과 다음 할 일 확인 → ③ 근거 확인 후 복사·보고서 저장</p><dl><div><dt>LOT · 생산 묶음 번호</dt><dd>함께 생산·관리하는 제품 묶음을 구분하는 번호입니다.</dd></div><div><dt>CCP · 중요관리점</dt><dd>식품 안전을 위해 중점 확인하는 공정입니다.</dd></div><div><dt>PDA · 현장 휴대 단말기</dt><dd>원료나 제품의 입출고·이동을 기록하는 기기입니다.</dd></div></dl></details>
+  <h2 className="records-heading">추가 확인이 필요한 기록</h2>
   <div className="operations-intro"><PackageSearch size={19}/><p>분류별 기록을 열어 원본과 LOT 연결을 확인하세요. 목록의 수는 분류별 기록 건수입니다.</p></div>
   <section className="attention-groups" aria-label="확인할 기록 분류">
    {groups.map(group=>{const categoryItems=items.filter(item=>item.category===group.category);const isMetal=group.category==='금속검출 보류';return <section className="attention-group" key={group.category} aria-labelledby={`group-${group.category}`}>

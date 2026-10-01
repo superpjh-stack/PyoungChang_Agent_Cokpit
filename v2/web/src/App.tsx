@@ -41,6 +41,16 @@ export default function App(){
  const documentsEpoch=useRef(0);
  const metalEpoch=useRef(0);
  const contextLot=route.lot||'';
+ const [queuedQuestion,setQueuedQuestion]=useState<{question:string;lot:string}|null>(null);
+ useEffect(()=>{
+  if(!queuedQuestion||!data||route.view!=='assistant'||contextLot!==queuedQuestion.lot)return;
+  assistant.current?.ask(queuedQuestion.question,queuedQuestion.lot);
+  setQueuedQuestion(null);
+ },[queuedQuestion,data,route.view,contextLot]);
+ const contextQuestion=(question:string,lot=contextLot)=>{
+  navigate('assistant',lot||null);
+  setQueuedQuestion({question,lot});
+ };
 
  useEffect(()=>{const update=()=>setRoute(readRoute(window.location.hash));window.addEventListener('hashchange',update);if(!window.location.hash)window.location.hash='#/home';return()=>window.removeEventListener('hashchange',update)},[]);
  const navigate=useCallback((view:WorkspaceView,lot:string|null=contextLot)=>{
@@ -82,7 +92,6 @@ export default function App(){
  if(error&&!data)return <div className="state-page" role="alert"><CircleAlert/><h1>기록을 불러오지 못했습니다.</h1><p>{error}</p><button className="primary-button" onClick={()=>void load(true)}>다시 연결</button></div>;
  if(!data)return null;
 
- const contextQuestion=(question:string,lot=contextLot)=>{navigate('assistant',lot);window.setTimeout(()=>assistant.current?.ask(question,lot),0)};
  let content:ReactNode;
  if(route.view==='home')content=<OperationsHome data={data} metalRecords={metalRecords} metalError={metalError} onOpenLot={lot=>navigate('lots',lot||null)} onAsk={(question,lot)=>contextQuestion(question,lot??contextLot)}/>;
  else if(route.view==='lots')content=<LotWorkspace lots={data.lots} selectedLot={route.lot} onSelectLot={lot=>navigate('lots',lot||null)} onAsk={(question,lot)=>contextQuestion(question,lot)}/>;

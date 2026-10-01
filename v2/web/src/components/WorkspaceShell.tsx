@@ -1,4 +1,4 @@
-import type {ReactNode} from 'react';
+import {useEffect,useRef,type ReactNode} from 'react';
 import {BookOpen, GitBranch, House, MessageCircle, type LucideIcon} from 'lucide-react';
 import type {Workspace} from '../types';
 
@@ -13,7 +13,21 @@ const navigation:{id:WorkspaceView;label:string;Icon:LucideIcon}[]=[
 
 export default function WorkspaceShell({view,selectedLot,data,headerActions,children,assistant,onNavigate}:Props){
  const isDemo=data.meta.demo_data;
- return <div className={`workspace-shell ${view==='assistant'?'show-assistant':''}`}>
+ const shell=useRef<HTMLDivElement>(null);
+ useEffect(()=>{
+  const viewport=window.visualViewport;
+  const update=()=>{
+   // Pin the mobile conversation to the visible area above the software keyboard.
+   // Leave pinch zoom native; zooming must not keep reflowing the application.
+   if(viewport&&viewport.scale!==1)return;
+   if(shell.current)shell.current.dataset.compactHeight=String((viewport?.height??window.innerHeight)<=550);
+   shell.current?.style.setProperty('--visible-height',`${viewport?.height??window.innerHeight}px`);
+   shell.current?.style.setProperty('--visible-top',`${viewport?.offsetTop??0}px`);
+  };
+  update();viewport?.addEventListener('resize',update);viewport?.addEventListener('scroll',update);window.addEventListener('resize',update);
+  return()=>{viewport?.removeEventListener('resize',update);viewport?.removeEventListener('scroll',update);window.removeEventListener('resize',update)};
+ },[]);
+ return <div ref={shell} className={`workspace-shell ${view==='assistant'?'show-assistant':''}`}>
   <header className="workspace-topbar">
    <a className="workspace-brand" href="#/home" onClick={event=>{event.preventDefault();onNavigate('home')}} aria-label="평창꽃순이김치 AI Agent 현장 홈">
     <span className="brand-mark">꽃</span><span><strong>평창꽃순이김치</strong><small>AI Agent v2.0</small></span>
