@@ -22,7 +22,7 @@ from kkotsuni_agent import ManufacturingAgent
 from kkotsuni_agent.factory_tools import KkotsuniToolRegistry
 from v2.compat import create_repository, lot_snapshot, QUESTION_GROUPS, DEFAULT_MODEL
 from v2.demo import demo_answer
-from v2.daily import SAMPLE_DATE, today_kst, daily_answer
+from v2.daily import SAMPLE_RANGE, today_kst, daily_answer
 from v2.metrics import create_tables, install_metrics
 from v2.work import WorkStore, install_work, stamp
 
@@ -156,7 +156,7 @@ def create_app(repository=None, static_dir: Path | None = None):
             '당신은 평창꽃순이김치 제조 현장의 한국어 음성 업무 도우미다. 짧고 자연스러운 존댓말로 답한다. '
             '사용자가 말을 마치면 바로 핵심부터 답하고, 필요하면 한 번에 질문 하나만 되묻는다. '
             '아래 제공된 조회 전용 자료는 회사 기록 질문에만 사용한다. 일반 지식 질문은 알고 있는 내용으로 답한다. '
-            f'회사 기록 질문은 제공된 읽기 전용 도구로 조회한다. 한국시간 오늘은 {today_kst()}이다. 공정·LOT는 2026-09-04, 일별 재고·출하는 {SAMPLE_DATE} 데모다. 오늘 재고·출하 질문은 get_daily_operations로 날짜와 유형을 구분 조회한다. 빈 결과는 미확인으로 답한다. 실시간 센서 연결은 미확인이다. '
+            f'회사 기록 질문은 제공된 읽기 전용 도구로 조회한다. 한국시간 오늘은 {today_kst()}이다. 공정·LOT는 2026-09-04, 일별 재고·출하는 {SAMPLE_RANGE} 데모다. 오늘 재고·출하 질문은 get_daily_operations로 날짜와 유형을 구분 조회한다. 빈 결과는 미확인으로 답한다. 실시간 센서 연결은 미확인이다. '
             '회사 기록에 없는 값은 반드시 미확인이라고 말하고 추측하지 않는다. 수치에는 단위와 KST 시각을 붙인다. 출하 승인, CCP 처분, 공정 변경을 결정하거나 실행하지 않는다. '
             'LOT·수치·상태는 잘못 들었을 수 있으므로 중요한 식별자는 짧게 재확인한다. 답변은 보통 3문장 이내로 한다.\n'
             f'현재 선택 LOT: {lot_id or "전체 기록"}\n조회 자료: {realtime_context(lot_id)}'
@@ -243,7 +243,7 @@ def create_app(repository=None, static_dir: Path | None = None):
     def workspace(request: Request):
         repo = app.state.repo
         local_dev_ai = bool(os.getenv('OPENAI_API_KEY')) and local_ai_allowed(request)
-        return {'kpi': repo.dashboard(), 'lots': repo.all_lots(), 'fermentation': repo.fermentation_status(None), 'ccp': repo.ccp_deviations(None), 'inventory': repo.inventory_status(None, False), 'shipments': repo.shipment_readiness(None), 'rules': repo.get_rules(), 'tables': repo.table_inventory(), 'questions': QUESTION_GROUPS, 'meta': {'company': '평창꽃순이김치', 'version': '2.0', 'demo_data': True, 'as_of': SAMPLE_DATE, 'daily_date': today_kst(), 'backend': 'SQLite · 샘플', 'ai_configured': bool(os.getenv('OPENAI_API_KEY') and (os.getenv('COCKPIT_ACCESS_TOKEN') or local_dev_ai)), 'local_dev_ai': local_dev_ai, 'model': os.getenv('OPENAI_MODEL') or DEFAULT_MODEL, 'retrieved_at': stamp()}}
+        return {'kpi': repo.dashboard(), 'lots': repo.all_lots(), 'fermentation': repo.fermentation_status(None), 'ccp': repo.ccp_deviations(None), 'inventory': repo.inventory_status(None, False), 'shipments': repo.shipment_readiness(None), 'rules': repo.get_rules(), 'tables': repo.table_inventory(), 'questions': QUESTION_GROUPS, 'meta': {'company': '평창꽃순이김치', 'version': '2.0', 'demo_data': True, 'as_of': SAMPLE_RANGE, 'daily_date': today_kst(), 'backend': 'SQLite · 샘플', 'ai_configured': bool(os.getenv('OPENAI_API_KEY') and (os.getenv('COCKPIT_ACCESS_TOKEN') or local_dev_ai)), 'local_dev_ai': local_dev_ai, 'model': os.getenv('OPENAI_MODEL') or DEFAULT_MODEL, 'retrieved_at': stamp()}}
 
     @app.get('/api/lots/{lot_id}')
     def detail(lot_id: str):

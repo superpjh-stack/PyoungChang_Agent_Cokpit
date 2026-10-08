@@ -1,9 +1,12 @@
 """Dated, explicitly synthetic logistics examples. Never roll old rows into today."""
 import re
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-SAMPLE_DATE = '2026-10-08'
+SAMPLE_DATE = '2026-10-08'  # Preserve the original snapshot and its IDs.
+SAMPLE_START = '2026-09-09'
+SAMPLE_END = '2026-10-09'
+SAMPLE_RANGE = f'{SAMPLE_START}~{SAMPLE_END}'
 TOP_QUESTIONS = ['오늘의 재고는 어떻게 돼?', '오늘은 출하계획은 어떻게 돼?', '오늘의 실제 출하현황을 어떻게 돼?']
 DAILY_LABELS = {'daily_inventory': '일별 재고 스냅샷', 'shipment_plans': '일별 출하계획', 'shipment_actuals': '실제 출하실적 기록'}
 
@@ -27,6 +30,18 @@ def seed_daily(connection):
             product_name TEXT, channel TEXT, quantity_kg REAL,
             shipped_at TEXT, status TEXT, source TEXT);
     ''')
+    current = date.fromisoformat(SAMPLE_START)
+    while current <= date.fromisoformat(SAMPLE_END):
+        _seed_day(connection, current)
+        current += timedelta(days=1)
+
+
+def _seed_day(connection, day):
+    business_date = day.isoformat()
+    date_id = day.strftime('%y%m%d')
+    offset = (day - date.fromisoformat(SAMPLE_DATE)).days
+    # Fixed historical examples, never regenerated relative to the server clock.
+    stock_factor = 1 + offset * 0.007
     for code, name, kind, qty, safety, location in [
         ('RM-CABBAGE', '배추', '원재료', 2400, 1500, '원재료 냉장창고'),
         ('RM-RADISH', '무', '원재료', 650, 800, '원재료 냉장창고'),
@@ -35,25 +50,28 @@ def seed_daily(connection):
         ('FG-MAT', '맛김치', '완제품', 950, 500, '완제품 냉장창고'),
         ('FG-CHONGGAK', '총각김치', '완제품', 420, 500, '완제품 냉장창고'),
     ]:
+        qty = round(qty * stock_factor / 10) * 10
         connection.execute('INSERT OR IGNORE INTO daily_inventory VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-                           (f'DEMO-{SAMPLE_DATE}-{code}', SAMPLE_DATE, code, name, kind, qty, 'kg', safety, location, SAMPLE_DATE+' 14:00', 'demo_data'))
+                           (f'DEMO-{business_date}-{code}', business_date, code, name, kind, qty, 'kg', safety, location, business_date+' 14:00', 'demo_data'))
     for index, product, channel, qty, time, approval in [
         (1, '포기김치', '온라인몰 · 택배', 800, '10:00', '승인'),
         (2, '맛김치', '거래처 배송', 600, '13:00', '승인'),
         (3, '총각김치', '거래처 배송', 300, '16:00', '승인대기'),
         (4, '포기김치', 'B2C 택배', 500, '17:00', '승인'),
     ]:
+        qty += offset * 5
         connection.execute('INSERT OR IGNORE INTO shipment_plans VALUES (?,?,?,?,?,?,?,?)',
-                           (f'DEMO-SP-261008-{index:02}', SAMPLE_DATE, product, channel, qty, SAMPLE_DATE+' '+time, approval, 'demo_data'))
+                           (f'DEMO-SP-{date_id}-{index:02}', business_date, product, channel, qty, business_date+' '+time, approval, 'demo_data'))
     for index, product, channel, qty, time in [(1, '포기김치', '온라인몰 · 택배', 800, '10:12'), (2, '맛김치', '거래처 배송', 400, '13:20')]:
+        qty += offset * (5 if index == 1 else 3)
         connection.execute('INSERT OR IGNORE INTO shipment_actuals VALUES (?,?,?,?,?,?,?,?,?)',
-                           (f'DEMO-OUT-261008-{index:02}', f'DEMO-SP-261008-{index:02}', SAMPLE_DATE, product, channel, qty, SAMPLE_DATE+' '+time, '출하완료', 'demo_data'))
+                           (f'DEMO-OUT-{date_id}-{index:02}', f'DEMO-SP-{date_id}-{index:02}', business_date, product, channel, qty, business_date+' '+time, '출하완료', 'demo_data'))
 
 
 def daily_answer(repo, question, lot_id=None):
-    if not any(word in question for word in ('재고', '출하')) or not any(word in question for word in ('오늘', '실제', '실적', '출하계획', '출하 계획')):
-        return None
     date_match = re.search(r'\d{4}-\d{2}-\d{2}', question)
+    if not any(word in question for word in ('재고', '출하')) or not (date_match or any(word in question for word in ('오늘', '실제', '실적', '출하계획', '출하 계획'))):
+        return None
     date = date_match.group() if date_match else today_kst()
     kind = 'inventory' if '재고' in question else 'actuals' if any(w in question for w in ('실제', '실적', '현황')) else 'plans'
     rows = repo.daily_operations(kind, date) if not lot_id else []
@@ -61,7 +79,7 @@ def daily_answer(repo, question, lot_id=None):
     if lot_id:
         lines.append('선택 LOT에 연결된 일별 재고·출하 기록은 미확인입니다. 전체 기록을 선택하면 회사 전체 샘플을 조회할 수 있습니다.')
     elif not rows:
-        lines.append(f'해당 날짜의 기록이 없습니다. 등록된 데모 기준일은 {SAMPLE_DATE}이며, 이전 기록을 오늘 현황으로 표시하지 않습니다.')
+        lines.append(f'해당 날짜의 기록이 없습니다. 등록된 데모 기간은 {SAMPLE_RANGE}이며, 이전 기록을 오늘 현황으로 표시하지 않습니다.')
     elif kind == 'inventory':
         for group in ('완제품', '원재료'):
             lines.append(f"{group} 재고 합계 {sum(r['quantity'] for r in rows if r['item_type']==group):,.0f}kg")
