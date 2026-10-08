@@ -3,20 +3,20 @@ import {BookOpen,ChevronLeft,ChevronRight,CircleAlert,Database,FileText,LoaderCi
 import type {Document,Row,TableInfo} from '../types';
 import EvidenceRecord,{inferRecordKind} from './EvidenceRecord';
 
-type Props={documents:Document[];documentError:string;tables:TableInfo[];onDocumentsReload:(query:string)=>Promise<void>;onRows:(table:string,page:number)=>Promise<Row[]>};
+type Props={compact?:boolean;documents:Document[];documentError:string;tables:TableInfo[];onDocumentsReload:(query:string)=>Promise<void>;onRows:(table:string,page:number)=>Promise<Row[]>};
 type Tab='knowledge'|'data';
 function ResourceDialog({title,onClose,children}:{title:string;onClose:()=>void;children:ReactNode}){
  const ref=useRef<HTMLDialogElement>(null);
  useEffect(()=>{const dialog=ref.current;if(!dialog)return;const previous=document.activeElement as HTMLElement|null;dialog.showModal();return()=>{dialog.close();previous?.focus()}},[]);
  return <dialog ref={ref} className="modal" onCancel={onClose} onClick={event=>{if(event.target===event.currentTarget)onClose()}}><header><h2>{title}</h2><button className="icon-button" aria-label="닫기" onClick={onClose}><X size={19}/></button></header><div className="modal-body">{children}</div></dialog>;
 }
-const displayKey=(record:Row,index:number)=>String(record.lot_id??record.item_name??record.name??record.order_no??record.shipment_no??record.equipment_id??record.document_id??`기록 ${index+1}`);
+const displayKey=(record:Row,index:number)=>String(record.dispatch_id??record.plan_id??record.lot_id??record.item_name??record.name??record.order_no??record.shipment_no??record.equipment_id??record.document_id??`기록 ${index+1}`);
 const cleanDocumentName=(filename:string)=>filename.replace(/^KKT-KB-\d+_/, '').replace(/\.md$/, '').replaceAll('_',' ');
 
-export default function ResourceLibrary({documents,documentError,tables,onDocumentsReload,onRows}:Props){
+export default function ResourceLibrary({compact=false,documents,documentError,tables,onDocumentsReload,onRows}:Props){
  const [tab,setTab]=useState<Tab>('knowledge');
  const [query,setQuery]=useState('');
- const [table,setTable]=useState('lots');
+ const [table,setTable]=useState('daily_inventory');
  const [page,setPage]=useState(0);
  const [rows,setRows]=useState<Row[]>([]);
  const [rowError,setRowError]=useState('');
@@ -43,8 +43,8 @@ export default function ResourceLibrary({documents,documentError,tables,onDocume
  },[onRows,page,retryKey,tab,table]);
 
  return <div className="workspace-page resource-library">
-  <header className="page-heading"><div><p className="eyebrow">문서 · 원본 기록</p><h1>제조 자료</h1><p>문서의 상태와 원본 제조 데이터를 조회합니다.</p></div></header>
-  <div className="library-tabs" role="tablist" aria-label="자료 종류"><button role="tab" id="tab-knowledge" aria-controls="panel-knowledge" aria-selected={tab==='knowledge'} className={tab==='knowledge'?'active':''} onClick={()=>setTab('knowledge')}><BookOpen size={17}/>지식베이스</button><button role="tab" id="tab-data" aria-controls="panel-data" aria-selected={tab==='data'} className={tab==='data'?'active':''} onClick={()=>setTab('data')}><Database size={17}/>데이터허브</button></div>
+  <header className="page-heading"><div><p className="eyebrow">문서 · 원본 기록</p><h1>{compact?'업무 자료':'제조 자료'}</h1><p>문서의 상태와 원본 제조 데이터를 조회합니다.</p></div></header>
+  <div className="library-tabs" role="tablist" aria-label="자료 종류"><button role="tab" id="tab-knowledge" aria-controls="panel-knowledge" aria-selected={tab==='knowledge'} className={tab==='knowledge'?'active':''} onClick={()=>setTab('knowledge')}><BookOpen size={17}/>지식베이스</button><button role="tab" id="tab-data" aria-controls="panel-data" aria-selected={tab==='data'} className={tab==='data'?'active':''} onClick={()=>setTab('data')}><Database size={17}/>DB 데이터</button></div>
   {tab==='knowledge'?<section id="panel-knowledge" role="tabpanel" aria-labelledby="tab-knowledge" className="resource-panel">
    <label className="resource-search"><Search size={17}/><span className="sr-only">문서 이름 또는 본문 검색</span><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="문서명 또는 공정 검색"/></label>
    <p className="source-note">샘플 지식베이스 {documents.length}개 · 문서 상태를 확인해 사용하세요.</p>

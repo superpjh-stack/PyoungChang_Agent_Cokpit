@@ -28,6 +28,9 @@ class KkotsuniToolRegistry:
             "browse_data_table": repository.browse_table,
         }
 
+        if hasattr(repository, 'daily_operations'):
+            self.handlers['get_daily_operations'] = repository.daily_operations
+
     @property
     def definitions(self) -> list[dict[str, Any]]:
         specs = [
@@ -44,6 +47,11 @@ class KkotsuniToolRegistry:
             ("search_knowledge", "승인 상태와 출처가 표시된 로컬 제조·HACCP 지식문서를 검색한다.", {"query": {"type": "string", "description": "절차·기준·검사·승인 관련 검색어"}, "limit": {"type": "integer", "minimum": 1, "maximum": 10, "description": "최대 검색 건수"}}),
             ("browse_data_table", "화이트리스트에 등록된 데모 Data Hub 테이블을 읽기 전용으로 조회한다.", {"table": {"type": "string", "enum": list(self.repository.BROWSEABLE_TABLES)}, "limit": {"type": "integer", "minimum": 1, "maximum": 200}, "offset": {"type": "integer", "minimum": 0}}),
         ]
+        if 'get_daily_operations' in self.handlers:
+            specs.append(('get_daily_operations', '한국시간 오늘 또는 지정 날짜의 재고 스냅샷, 출하계획, 실제 출하실적을 구분 조회한다. 빈 결과를 과거 데이터로 대체하지 않는다. 모두 데모 샘플이다.', {
+                'kind': {'type': 'string', 'enum': ['inventory', 'plans', 'actuals']},
+                'date': nullable_string('YYYY-MM-DD. null이면 한국시간 오늘')
+            }))
         return [{"type": "function", "name": name, "description": description, "strict": True,
                  "parameters": {"type": "object", "properties": properties, "required": list(properties), "additionalProperties": False}}
                 for name, description, properties in specs]

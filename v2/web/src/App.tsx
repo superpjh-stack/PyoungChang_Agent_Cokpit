@@ -1,5 +1,6 @@
 import {useCallback,useEffect,useRef,useState,type ReactNode} from 'react';
 import {CircleAlert, LoaderCircle, RefreshCw, Settings2, X} from 'lucide-react';
+import ConnectionSetup from './components/ConnectionSetup';
 import {Assistant} from './components/Assistant';
 import LotWorkspace from './components/LotWorkspace';
 import OperationsHome from './components/OperationsHome';
@@ -16,9 +17,9 @@ function Modal({title,onClose,children}:{title:string;onClose:()=>void;children:
 const validViews:WorkspaceView[]=['home','lots','assistant','library'];
 function readRoute(hash:string):{view:WorkspaceView;lot:string|null}{
  const parts=hash.replace(/^#\/?/,'').split('/').filter(Boolean);
- if(!parts.length)return {view:'home',lot:null};
+ if(!parts.length)return {view:'assistant',lot:null};
  const view=parts[0] as WorkspaceView;
- if(!validViews.includes(view))return {view:'home',lot:null};
+ if(!validViews.includes(view))return {view:'assistant',lot:null};
  try{return {view,lot:parts[1]?decodeURIComponent(parts[1]):null}}catch{return {view,lot:null}}
 }
 export default function App(){
@@ -28,14 +29,12 @@ export default function App(){
  const [documentsError,setDocumentsError]=useState('');
  const [token,setToken]=useState(()=>sessionStorage.getItem('kkt_access_token')||'');
  const [settings,setSettings]=useState(false);
- const [tokenDraft,setTokenDraft]=useState('');
- const [checking,setChecking]=useState(false);
- const [connectionMessage,setConnectionMessage]=useState('');
  const [loading,setLoading]=useState(true);
  const [refreshing,setRefreshing]=useState(false);
  const [error,setError]=useState('');
  const [metalRecords,setMetalRecords]=useState<Row[]>([]);
- const [history,setHistory]=useState<string[]>([]);
+ const [history,setHistory]=useState<string[]>(()=>{try{const saved=JSON.parse(sessionStorage.getItem('kkt_question_history')||'[]');return Array.isArray(saved)?saved.filter((item):item is string=>typeof item==='string').slice(0,20):[]}catch{return []}});
+ useEffect(()=>{sessionStorage.setItem('kkt_question_history',JSON.stringify(history))},[history]);
  const [metalError,setMetalError]=useState('');
  const assistant=useRef<import('./components/Assistant').AssistantHandle>(null);
  const documentsEpoch=useRef(0);
@@ -52,7 +51,7 @@ export default function App(){
   setQueuedQuestion({question,lot});
  };
 
- useEffect(()=>{const update=()=>setRoute(readRoute(window.location.hash));window.addEventListener('hashchange',update);if(!window.location.hash)window.location.hash='#/home';return()=>window.removeEventListener('hashchange',update)},[]);
+ useEffect(()=>{const update=()=>setRoute(readRoute(window.location.hash));window.addEventListener('hashchange',update);if(!window.location.hash)window.location.hash='#/assistant';return()=>window.removeEventListener('hashchange',update)},[]);
  const navigate=useCallback((view:WorkspaceView,lot:string|null=contextLot)=>{
   const suffix=lot?`/${encodeURIComponent(lot)}`:'';
   const target=`#/${view}${suffix}`;
@@ -83,11 +82,6 @@ export default function App(){
  useEffect(()=>{void load(true)},[load]);
  const reloadTable=useCallback((table:string,page:number)=>request<Row[]>(`/tables/${encodeURIComponent(table)}?limit=20&offset=${page*20}`),[]);
 
- async function checkConnection(){
-  setChecking(true);setConnectionMessage('');
-  try{const result=await request<{message:string}>('/connection',{headers:tokenDraft.trim()?{Authorization:'Bearer '+tokenDraft.trim()}: {}});setToken(tokenDraft.trim());sessionStorage.setItem('kkt_access_token',tokenDraft.trim());setConnectionMessage(result.message);await load(false)}
-  catch(reason){setConnectionMessage((reason as Error).message)}finally{setChecking(false)}
- }
  if(loading)return <div className="state-page"><LoaderCircle className="spin"/><h1>평창꽃순이김치 기록을 준비하고 있습니다.</h1></div>;
  if(error&&!data)return <div className="state-page" role="alert"><CircleAlert/><h1>기록을 불러오지 못했습니다.</h1><p>{error}</p><button className="primary-button" onClick={()=>void load(true)}>다시 연결</button></div>;
  if(!data)return null;
@@ -97,9 +91,9 @@ export default function App(){
  else if(route.view==='lots')content=<LotWorkspace lots={data.lots} selectedLot={route.lot} onSelectLot={lot=>navigate('lots',lot||null)} onAsk={(question,lot)=>contextQuestion(question,lot)}/>;
  else if(route.view==='assistant')content=<div className="assistant-mobile-heading"><div><p className="eyebrow">근거형 제조 도우미</p><h1>LOT와 기록을 질문하세요</h1><p>이 화면에서 질문하고 근거를 확인합니다.</p></div><button className="assistant-home-button" onClick={()=>navigate('home')} aria-label="현장 홈으로 돌아가기"><X size={19}/></button></div>;
  else content=<ResourceLibrary documents={documents} documentError={documentsError} tables={data.tables} onDocumentsReload={reloadDocuments} onRows={reloadTable}/>;
- return <WorkspaceShell view={route.view} selectedLot={contextLot||null} data={data} headerActions={<><button className="workspace-action" disabled={refreshing} aria-label="기록 새로고침" onClick={()=>void load(false)}><RefreshCw size={18}/><span>{refreshing?'조회 중':'새로고침'}</span></button><button className="workspace-action" onClick={()=>{setTokenDraft(token);setSettings(true)}}><Settings2 size={18}/><span>연결 설정</span></button></>} assistant={<Assistant ref={assistant} data={data} token={token} user={null} lot={contextLot} onLot={selectLot} onSettings={()=>{setTokenDraft(token);setSettings(true)}} onSave={()=>setSettings(true)} work={null} open={false} mobileActive={route.view==='assistant'} recommendations={data.questions['공정데이터']||[]} history={history} onQuestion={question=>setHistory(previous=>[question,...previous.filter(item=>item!==question)].slice(0,20))} onClose={()=>navigate('home')}/>} onNavigate={view=>navigate(view)}>{content}
+ return <WorkspaceShell history={history} onAsk={question=>contextQuestion(question,'')} onNewChat={()=>assistant.current?.reset()} resources={<ResourceLibrary compact documents={documents} documentError={documentsError} tables={data.tables} onDocumentsReload={reloadDocuments} onRows={reloadTable}/>} view={route.view} selectedLot={contextLot||null} data={data} headerActions={<><button className="workspace-action" disabled={refreshing} aria-label="기록 새로고침" onClick={()=>void load(false)}><RefreshCw size={18}/><span>{refreshing?'조회 중':'새로고침'}</span></button><button className="workspace-action" aria-label="연결 설정" onClick={()=>{setSettings(true)}}><Settings2 size={18}/><span>연결 설정</span></button></>} assistant={<Assistant ref={assistant} data={data} token={token} user={null} lot={contextLot} onLot={selectLot} onSettings={()=>{setSettings(true)}} onSave={()=>setSettings(true)} work={null} open={false} mobileActive={route.view==='assistant'} recommendations={data.questions['공정데이터']||[]} history={history} onQuestion={question=>setHistory(previous=>[question,...previous.filter(item=>item!==question)].slice(0,20))} onClose={()=>navigate('home')}/>} onNavigate={view=>navigate(view)}>{content}
   {error&&<div className="inline-error" role="alert"><CircleAlert size={17}/><span>기록 새로고침에 실패했습니다: {error}</span><button onClick={()=>void load(false)}>다시 불러오기</button></div>}
   {metalError&&<p className="sample-note" role="status">금속검출 기록은 조회하지 못했습니다. 확인 대상에 0건으로 표시하지 않습니다.</p>}
-  {settings&&<Modal title="AI 연결 설정" onClose={()=>setSettings(false)}><p className="settings-copy">로컬에서는 서버의 AI 연결을 바로 사용합니다. 외부 접속은 관리자가 발급한 접근 코드가 필요합니다.</p><p role="status">{connectionMessage||(data.meta.ai_configured?'서버 AI 설정이 있습니다. 연결 권한을 확인하세요.':'서버 API 키가 미설정이거나 외부 접근 코드가 구성되지 않았습니다. 관리자 설정 후 다시 확인하세요.')}</p><label className="form-label">AI 접근 코드<input type="password" autoComplete="off" value={tokenDraft} onChange={event=>setTokenDraft(event.target.value)}/></label><div className="modal-actions"><button className="secondary-button" onClick={()=>setSettings(false)}>닫기</button><button className="secondary-button" onClick={()=>{setToken('');setTokenDraft('');sessionStorage.removeItem('kkt_access_token');setConnectionMessage('저장된 접근 코드를 지웠습니다.')}}>접근 코드 지우기</button><button className="primary-button" disabled={checking} onClick={()=>void checkConnection()}>{checking?'확인 중…':'연결 확인·적용'}</button></div></Modal>}
+  {settings&&<Modal title="음성 · OpenAI 연결" onClose={()=>setSettings(false)}><ConnectionSetup data={data} token={token} onApply={async value=>{setToken(value);sessionStorage.setItem('kkt_access_token',value);await load(false)}} onClear={()=>{setToken('');sessionStorage.removeItem('kkt_access_token')}}/></Modal>}
  </WorkspaceShell>;
 }

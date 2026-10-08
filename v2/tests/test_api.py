@@ -6,6 +6,7 @@ from v2.compat import KkotsuniV2Repository, QUESTION_GROUPS
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
+    monkeypatch.setattr('v2.daily.today_kst', lambda: '2026-10-08')
     for key in ('OPENAI_API_KEY', 'COCKPIT_ACCESS_TOKEN', 'V2_REQUIRE_LOGIN', 'DATABASE_URL'):
         monkeypatch.delenv(key, raising=False)
     repo = KkotsuniV2Repository(tmp_path / 'test.db')
@@ -17,7 +18,7 @@ def test_workspace_and_sources(client):
     data = client.get('/api/workspace').json()
     assert data['meta']['company'] == '평창꽃순이김치'
     assert data['meta']['demo_data'] and not data['meta']['ai_configured']
-    assert len(data['tables']) == 11
+    assert len(data['tables']) == 14
     assert data['fermentation'] == []
     for table in data['tables']:
         assert client.get('/api/tables/' + table['table']).status_code == 200
@@ -48,7 +49,7 @@ def test_questions_and_reset(client):
             assert result.status_code == 200
             answer = result.json()
             assert answer['evidence'] or answer['records']
-            assert '2026-09-04' in answer['text']
+            assert answer['context']['as_of'] in answer['text']
     assert client.post('/api/chat/reset').status_code == 200
     assert client.post('/api/chat',json={'question':'   '}).status_code == 422
     assert client.post('/api/chat',json={'question':'PACK-999999-99 확인'}).status_code == 404
@@ -128,3 +129,44 @@ def test_ai_receives_upstream_records_and_keeps_sample_date(client, monkeypatch)
     assert any(r.get('inspection_id') == 'MD-260904-01' for r in answer['records'])
     assert answer['demo_data'] and 'private-provider-id' not in response.text
     assert calls == ['closed']
+
+
+def test_provider_verification_uses_models_only(client, monkeypatch):
+    import openai
+    monkeypatch.setenv('OPENAI_API_KEY', 'private-test-key')
+    called = []
+    class Models:
+        def retrieve(self, model):
+            called.append(model)
+            return object()
+    class FakeClient:
+        models = Models()
+        def close(self):
+            called.append('closed')
+    monkeypatch.setattr(openai, 'OpenAI', lambda **kwargs: FakeClient())
+    result = client.post('/api/connection/verify')
+    assert result.status_code == 200
+    assert len(result.json()['models']) == 2
+    assert all(item['available'] for item in result.json()['models'])
+    assert called[-1] == 'closed'
+    assert 'private-test-key' not in result.text
+    with TestClient(create_app(client.app.state.repo),base_url='https://factory.example') as external:
+        assert external.post('/api/connection/verify').status_code == 503
+
+
+def test_provider_verification_sanitizes_auth_error(client, monkeypatch):
+    import openai
+    import httpx
+    monkeypatch.setenv('OPENAI_API_KEY', 'private-test-key')
+    class Models:
+        def retrieve(self, model):
+            raise openai.AuthenticationError('private-test-key', response=httpx.Response(401, request=httpx.Request('GET','https://api.openai.com/v1/models/test')), body=None)
+    class FakeClient:
+        models = Models()
+        def close(self):
+            pass
+    monkeypatch.setattr(openai, 'OpenAI', lambda **kwargs: FakeClient())
+    result = client.post('/api/connection/verify')
+    assert result.status_code == 401
+    assert 'private-test-key' not in result.text
+    assert '유효하지' in result.json()['detail']

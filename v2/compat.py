@@ -1,15 +1,31 @@
 """V2 HTTP adapter backed by the existing Kkotsuni records, without reseeding V1."""
 import os
 from kkotsuni_agent.data_hub import KkotsuniRepository
+from .daily import DAILY_LABELS, TOP_QUESTIONS, seed_daily, today_kst
 from kkotsuni_agent.ui_helpers import QUESTION_GROUPS as GROUPS, lot_snapshot as snapshot
 
 DEFAULT_MODEL = 'gpt-5.6'
-QUESTION_GROUPS = {'공정데이터': GROUPS['MES·LOT'], '일반질의': GROUPS['지식문서']}
+QUESTION_GROUPS = {'공정데이터': TOP_QUESTIONS + GROUPS['MES·LOT'], '일반질의': GROUPS['지식문서']}
 TABLE_LABELS = dict(zip(KkotsuniRepository.BROWSEABLE_TABLES, [
     '수주', '생산계획', 'LOT 계보', '세척 CCP', '금속검출', '원재료·완제품 재고',
     'PDA 재고이동', '출하 승인', '설비 연계', '판단규칙', '지식문서']))
 
+TABLE_LABELS.update(DAILY_LABELS)
+
 class KkotsuniV2Repository(KkotsuniRepository):
+    BROWSEABLE_TABLES = (*KkotsuniRepository.BROWSEABLE_TABLES, *DAILY_LABELS)
+
+    def _initialize(self):
+        super()._initialize()
+        with self._connect() as connection:
+            seed_daily(connection)
+
+    def daily_operations(self, kind, date=None):
+        table = {'inventory': 'daily_inventory', 'plans': 'shipment_plans', 'actuals': 'shipment_actuals'}.get(kind)
+        if not table:
+            raise ValueError('지원되지 않는 일별 조회 유형')
+        return self._query(f'SELECT * FROM {table} WHERE business_date=? ORDER BY 1', (date or today_kst(),))
+
     def fermentation_status(self, lot_id=None):
         # No fermentation prediction is registered for this company.
         return []

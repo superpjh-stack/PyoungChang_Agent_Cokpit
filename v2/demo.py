@@ -1,8 +1,12 @@
 """Bounded local retrieval. No inference, live data or manufacturing approvals."""
 from .compat import lot_snapshot
+from .daily import daily_answer
 
 
 def demo_answer(repo, question, lot_id=None):
+    daily = daily_answer(repo, question, lot_id)
+    if daily is not None:
+        return daily
     docs = repo.search_knowledge(question)
     evidence = [dict(filename=d['filename'], document_id=d['document_id'], text=d['body'],
                      status=d['status'], revision=d['revision'], owner=d['owner']) for d in docs]

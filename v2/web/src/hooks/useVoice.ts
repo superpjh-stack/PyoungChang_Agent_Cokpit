@@ -72,7 +72,7 @@ export function useVoice(token:string, onTranscript:(text:string)=>void) {
         const blob=new Blob(chunks,{type:rec.mimeType||chunks[0]?.type||''});
         if(!blob.size){cancel();setError('녹음된 소리가 없습니다. 다시 녹음하거나 문자로 입력하세요.');return}
         if(!formats[blob.type.split(';')[0]]){cancel();setError('이 브라우저의 녹음 형식을 지원하지 않습니다. 음성 파일·문자 입력을 이용하세요.');return}
-        pending.current=blob;transition('review');
+        pending.current=blob;transition('review');void transcribe(blob);
       };
       rec.start(500);transition('recording');const began=Date.now();
       timer.current=setInterval(()=>{const elapsed=Math.min(60,Math.floor((Date.now()-began)/1000));setSeconds(elapsed);if(elapsed>=60)stop()},250);
