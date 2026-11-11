@@ -17,7 +17,7 @@ export default function WorkspaceShell({view,selectedLot,data,headerActions,chil
  return <div className={`flower-workspace ${chat?'is-chat':''}`}>
   <header className="flower-topbar">
    <a className="flower-brand" href="#/assistant" onClick={event=>{event.preventDefault();onNavigate('assistant')}}><span className="flower-mark">꽃</span><span><strong>평창꽃순이김치</strong><small>우리의 정성, 더 편한 업무</small></span></a>
-   <nav aria-label="주요 화면">{navigation.map(({id,label,Icon})=><button key={id} aria-current={view===id?'page':undefined} onClick={()=>{setMobilePanel(null);onNavigate(id)}}><Icon size={16}/><span>{label}</span></button>)}</nav>
+   <nav aria-label="주요 화면">{navigation.map(({id,label,Icon})=><button key={id} aria-label={label} aria-current={view===id?'page':undefined} onClick={()=>{setMobilePanel(null);onNavigate(id)}}><Icon size={16}/></button>)}</nav>
    <div className="flower-actions">{headerActions}</div>
   </header>
   <div className="flower-mobile-tools"><button aria-expanded={mobilePanel==='questions'} onClick={()=>setMobilePanel(value=>value==='questions'?null:'questions')}><History size={17}/>질문 · 기록</button><span>꽃순이 에이전트</span><button aria-expanded={mobilePanel==='resources'} onClick={()=>{onNavigate('assistant');setMobilePanel(value=>value==='resources'?null:'resources')}}><BookOpen size={17}/>지식 · DB</button></div>
