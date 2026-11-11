@@ -72,8 +72,8 @@ def test_paid_gates_and_origin(client, monkeypatch):
 def test_voice_read_only_registry(client,monkeypatch):
     monkeypatch.setenv('OPENAI_API_KEY','test-key')
     result = client.post('/api/realtime/tool',json={'name':'get_wash_ccp_status','arguments':{'lot_id':'WASH-260904-01','deviations_only':False}})
-    assert result.status_code == 200
-    assert json.loads(result.json()['output'])['result'][0]['peroxide_ppm'] == 72
+    # Voice now exposes only the shared graph, never raw lookup tools.
+    assert result.status_code == 400
     assert client.post('/api/realtime/tool',json={'name':'delete_lot','arguments':{}}).status_code == 400
     registry = EvidenceRegistry(client.app.state.repo)
     registry.execute('get_metal_detection',{'lot_id':'PACK-260904-01','issues_only':True})

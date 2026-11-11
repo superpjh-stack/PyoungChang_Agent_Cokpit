@@ -5,7 +5,7 @@ from .daily import DAILY_LABELS, TOP_QUESTIONS, seed_daily, today_kst
 from kkotsuni_agent.ui_helpers import QUESTION_GROUPS as GROUPS, lot_snapshot as snapshot
 
 DEFAULT_MODEL = 'gpt-5.6'
-QUESTION_GROUPS = {'공정데이터': TOP_QUESTIONS + GROUPS['MES·LOT'], '일반질의': GROUPS['지식문서']}
+from .compound import QUESTION_GROUPS
 TABLE_LABELS = dict(zip(KkotsuniRepository.BROWSEABLE_TABLES, [
     '수주', '생산계획', 'LOT 계보', '세척 CCP', '금속검출', '원재료·완제품 재고',
     'PDA 재고이동', '출하 승인', '설비 연계', '판단규칙', '지식문서']))
