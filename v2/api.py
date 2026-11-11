@@ -112,7 +112,7 @@ def create_app(repository=None, static_dir: Path | None = None):
             if request.method not in ('GET', 'HEAD', 'OPTIONS'):
                 origin = request.headers.get('origin')
                 expected = str(request.base_url).rstrip('/')
-                allowed_origins = {expected}
+                allowed_origins = {expected} | {value.strip().rstrip('/') for value in os.getenv('KKOTSUNI_PUBLIC_ORIGINS', '').split(',') if value.strip()}
                 if request.url.hostname in {'127.0.0.1', 'localhost'}:
                     allowed_origins.update({'http://127.0.0.1:5173', 'http://localhost:5173'})
                 if request.headers.get('sec-fetch-site') == 'cross-site' or (origin and origin not in allowed_origins):

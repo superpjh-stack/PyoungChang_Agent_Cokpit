@@ -1,3 +1,4 @@
+import {apiPath} from '../apiPath';
 import {useEffect,useMemo,useState} from 'react';
 import {ArrowLeft,ChevronRight,CircleAlert,GitBranch,LoaderCircle,Search} from 'lucide-react';
 import type {Detail,Lot} from '../types';
@@ -20,7 +21,7 @@ export default function LotWorkspace({lots,selectedLot,onSelectLot,onAsk}:Props)
  useEffect(()=>{
   if(!selectedLot){setDetail(null);setDetailError('');setDetailLoading(false);return}
   const controller=new AbortController();setDetail(null);setDetailError('');setDetailLoading(true);
-  fetch(`/api/lots/${encodeURIComponent(selectedLot)}`,{signal:controller.signal}).then(async response=>{if(!response.ok){const payload=await response.json().catch(()=>({}));throw new Error(payload.detail||`LOT 조회에 실패했습니다 (${response.status}).`)}return response.json() as Promise<Detail>}).then(result=>{if(!controller.signal.aborted)setDetail(result)}).catch(reason=>{if(!controller.signal.aborted)setDetailError((reason as Error).message)}).finally(()=>{if(!controller.signal.aborted)setDetailLoading(false)});
+  fetch(apiPath(`/api/lots/${encodeURIComponent(selectedLot)}`),{signal:controller.signal}).then(async response=>{if(!response.ok){const payload=await response.json().catch(()=>({}));throw new Error(payload.detail||`LOT 조회에 실패했습니다 (${response.status}).`)}return response.json() as Promise<Detail>}).then(result=>{if(!controller.signal.aborted)setDetail(result)}).catch(reason=>{if(!controller.signal.aborted)setDetailError((reason as Error).message)}).finally(()=>{if(!controller.signal.aborted)setDetailLoading(false)});
   return()=>controller.abort();
  },[selectedLot]);
 

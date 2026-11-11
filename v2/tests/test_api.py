@@ -170,3 +170,9 @@ def test_provider_verification_sanitizes_auth_error(client, monkeypatch):
     assert result.status_code == 401
     assert 'private-test-key' not in result.text
     assert '유효하지' in result.json()['detail']
+
+
+def test_explicit_https_origin_allowlist(client, monkeypatch):
+    monkeypatch.setenv('KKOTSUNI_PUBLIC_ORIGINS','https://srv1934103.hstgr.cloud')
+    assert client.post('/api/chat/reset', headers={'Origin':'https://srv1934103.hstgr.cloud'}).status_code == 200
+    assert client.post('/api/chat/reset', headers={'Origin':'https://evil.example'}).status_code == 403
